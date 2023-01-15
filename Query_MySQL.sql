@@ -396,9 +396,342 @@ WHERE  NOT EXISTS (SELECT *
                    FROM   CarteCredito AS Cc
                    WHERE  Cl.CodiceFiscale = CC.CodiceFiscale);
 
-                   
+
+/********************************************
+Capitolo 11: Normalizzazione di un Database
+********************************************/
+
+/*Creiamo il Database tramite lo script disponibile qui 
+https://raw.githubusercontent.com/iantomasinicola/eBook/main/CodiceDbNonNormalizzato.txt
+*/
+
+
+/*Posizioniamoci su questo Database in modo che le prossime istruzioni siano relative ad esso*/
+USE normalizzazione;
+
+
+/*Rinominiamo la colonna Residenza della tabella DimClienti in Regione*/
+ALTER TABLE DimClienti
+RENAME COLUMN Residenza 
+TO Regione;
+
+
+/*Aggiungiamo alla tabella DimClienti una terza colonna di nome Cap*/
+ALTER TABLE DimClienti
+ADD COLUMN Cap 
+VARCHAR(5) NULL;
+
+
+/*Visualizziamo la seconda informazione contenuta all'interno della colonna Regione*/
+SELECT regione, 
+       TRIM(SUBSTRING(regione, 
+                       INSTR(regione,'-') + 1,
+                       LENGTH(regione))) AS cap_new
+FROM DimClienti;
+
+
+/*Una volta verificato l'output della SELECT precedente,
+aggiorniamo il contenuto della colonna Cap con un UPDATE */
+UPDATE DimClienti
+SET    cap =  TRIM(SUBSTRING(regione, 
+			     INSTR(regione,'-') + 1,
+			     LENGTH(regione)));
+ 
+ 
+/*Visualizziamo la prima informazione contenuta all'interno della colonna Regione*/
+SELECT regione, 
+	   TRIM(SUBSTRING(regione,
+					  1,
+					  INSTR(regione,'-')- 1)) 
+FROM DimClienti;
+
+
+/*Una volta verificato l'output della SELECT precedente,
+aggiorniamo il contenuto della colonna Regione con un UPDATE */
+UPDATE DimClienti
+SET regione = TRIM(SUBSTRING(regione,
+                             1,
+			     INSTR(regione,'-')- 1));
+                             
+
+/*Valutiamo se imporre il vincolo NOT NULL alla colonna Cap*/
+ALTER TABLE DimClienti
+MODIFY COLUMN Cap VARCHAR(5) NOT NULL;
+
+
+/*Aggiungiamo la colonna DataNascita alla tabella DimClienti */
+ALTER TABLE DimClienti
+ADD COLUMN DataNascita DATE NULL;
+
+
+/*Aggiorniamola tramite un UPDATE a partire dal contenuto della tabella DimPrestiti*/
+UPDATE DimClienti
+INNER JOIN DimPrestiti
+    ON DimClienti.NumeroCliente = DimPrestiti.NumeroCliente
+SET    DimClienti.DataNascita = DimPrestiti.DataNascitaCliente;
+
+
+/*Rimuoviamo la colonna dalla tabella dei prestiti.*/
+ALTER TABLE DimPrestiti
+DROP COLUMN DataNascitaCliente;
+
+
+/*Visualizziamo il contenuto delle due tabelle*/
+SELECT *
+FROM DimClienti;
+
+SELECT *
+FROM DimPrestiti;
+
+
+/*Per gestire relazioni N a N senza ridondanze di dati occorre creare una terza tabella che 
+riporti solamente le associazioni tra Clienti e Presti, senza nessun attributo specifico 
+delle singole entità. */
+CREATE TABLE PrestitiClienti(
+           NumeroPrestito INT NOT NULL, 
+           NumeroCliente INT NOT NULL);
+           
+
+/*La chiave primaria della tabella che implementa la relazione N a N è data 
+dalla composizione delle chiavi primarie delle due entità associate.*/
+ALTER TABLE  PrestitiClienti
+ADD PRIMARY KEY (NumeroPrestito, NumeroCliente);
+
+
+/*Popoliamo la tabella utilizzando le associazioni già presenti nella tabella DimPrestiti.*/
+INSERT INTO PrestitiClienti (NumeroPrestito, 
+                             NumeroCliente)
+SELECT NumeroPrestito, 
+	   NumeroCliente
+FROM   DimPrestiti;
+
+
+/*Visualizziamo il contenuto della tabella PrestitiClienti*/
+SELECT *
+FROM   PrestitiClienti;
+
+
+/*Rimuoviamo la chiave primaria dalla tabella DimPrestiti*/
+ALTER TABLE DimPrestiti 
+DROP PRIMARY KEY;
+
+
+/*Rimuoviamo la colonna NumeroCliente dalla tabella DimPrestiti*/
+ALTER TABLE DimPrestiti
+DROP COLUMN NumeroCliente;
+
+
+/*Eliminiamore le righe duplicate nella DimPrestiti. 
+Su MySql quest’operazione può risultare un po’ più laboriosa rispetto ad altri DBMS.
+Occorre preliminarmente creare una colonna contenente un id progressivo*/
+ALTER TABLE DimPrestiti
+ADD COLUMN RowNumber INT
+AUTO_INCREMENT PRIMARY KEY;
+
+
+/*Ora utilizziamo per cancellare le righe duplicate*/
+DELETE p1
+FROM    DimPrestiti p1
+INNER JOIN DimPrestiti p2
+ON p1.NumeroPrestito =  p2.NumeroPrestito
+AND p1.RowNumber > p2.RowNumber;
+
+
+/*Eliminiamo la colonna RowNumber appena creata*/
+ALTER TABLE DimPrestiti
+DROP COLUMN RowNumber;
+
+
+/*Impostiamo la chiave primaria sulla colonna NumeroPrestito. */
+ALTER TABLE DimPrestiti
+ADD PRIMARY KEY (NumeroPrestito);
+
+
+/*Aggiungiamo le chiavi esterne alla tabella PrestitiClienti */
+ALTER TABLE  PrestitiClienti
+ADD FOREIGN KEY (NumeroPrestito)
+REFERENCES DimPrestiti(NumeroPrestito);
+
+ALTER TABLE  PrestitiClienti
+ADD FOREIGN KEY (NumeroCliente)
+REFERENCES DimClienti(NumeroCliente);
+
+
+/*Il nostro Database è ora normalizzato!*/
+SELECT *
+FROM   DimClienti;
+
+SELECT *
+FROM   DimPrestiti;
+
+SELECT *
+FROM   PrestitiClienti;
+
+
+/*******************************************
+Capitolo 12: Un Project Work riepilogativo
+********************************************/
+
+/*Creiamo il Database Project Work*/
+CREATE DATABASE ProjectWork;
+
+
+/*Posizioniamoci su questo Database in modo che le prossime istruzioni siano relative ad esso*/
+USE ProjectWork;
+
+
+/*Creiamo la tabella EsperimentiStaging*/
+CREATE TABLE EsperimentiStaging(
+    IdEsperimento INT NOT NULL PRIMARY KEY,
+    Data VARCHAR(250) NULL,
+    Operatore VARCHAR(250) NULL,
+    Valore VARCHAR(250) NULL,
+    Molecola VARCHAR(250) NULL );
+
+
+/*Eseguiamo l'import di questo file
+https://raw.githubusercontent.com/iantomasinicola/eBook/main/Progetto_Esperimenti.csv
+procedendo in questo modo:
+-   scarichiamo il file sul nostro PC
+-	facciamo click con il tasto destro sulla tabella EsperimentiStaging dal menù Navigator a sinistra
+-	clicchiamo sulla voce TableDataImportWizard 
+-	selezioniamo il file da importare
+-	seguire le istruzioni, in particolare occorre:
+    o	usare la tabella esistente 
+    o	scegliere di importare tutte le colonne
+    o	eseguire l’import     */
+    
+    
+/*Testiamo il contenuto della tabella in cui abbiamo importato i dati*/
+SELECT *
+FROM   EsperimentiStaging;
+
+
+/*Creiamo la tabella Esperimenti*/
+CREATE TABLE Esperimenti(
+   IdEsperimento INT NOT NULL PRIMARY KEY,
+   Data DATE NOT NULL,
+   Operatore VARCHAR(250) NOT NULL,
+   Valore DECIMAL(18, 6) NOT NULL,
+   Molecola VARCHAR(250) NOT NULL);
+   
+   
+/*Modifichiamo i dati della tabella EsperimentiStaging. Visualizziamo prima 
+il risultato con una SELECT */
+SELECT IdEsperimento,
+   CAST(REPLACE(Valore, ',', '.') AS Decimal(18,4)) AS ValoreD,
+   CONCAT(RIGHT(Data,4), '-', 
+		  SUBSTRING(Data,4,2), '-',
+          LEFT(Data,2)) AS DataConv,
+    Molecola,
+    Operatore
+FROM     EsperimentiStaging
+WHERE  (LEFT(Molecola,2) = 'AB' AND RIGHT(Molecola,1)='D')
+  OR   (LEFT(Molecola,1) = 'F' AND RIGHT(Molecola,1)!='P');
+
+
+/*Inseriamo poi questi dati all'interno di Esperimenti*/
+INSERT INTO Esperimenti(IdEsperimento,
+						Valore,
+                        Data,
+						Molecola, 
+                        Operatore)
+SELECT IdEsperimento,
+   CAST(REPLACE(Valore, ',', '.') AS Decimal(18,4)) AS ValoreD,
+   CONCAT(RIGHT(Data,4), '-', 
+		  SUBSTRING(Data,4,2), '-',
+          LEFT(Data,2)) AS DataConv,
+    Molecola,
+    Operatore
+FROM     EsperimentiStaging
+WHERE  (LEFT(Molecola,2) = 'AB' AND RIGHT(Molecola,1)='D')
+  OR   (LEFT(Molecola,1) = 'F' AND RIGHT(Molecola,1)!='P');
+  
+  
+/*Confrontiamo separatamente i dati prima e dopo la data di cambio del macchinario*/
+SELECT   Operatore, 
+	     AVG(Valore) AS ValoreMedio
+FROM     Esperimenti
+WHERE    Data > '2020-05-01'
+GROUP BY Operatore;
+
+SELECT   Operatore, 
+	     AVG(Valore) AS ValoreMedio
+FROM     Esperimenti
+WHERE    Data <= '2020-05-01'
+GROUP BY Operatore;
+
+
+/*Combiniamo le due analisi con una subquery*/
+WITH DatiPostMaggio AS (
+	SELECT   Operatore, 
+			 AVG(Valore) AS ValorePost
+	FROM     Esperimenti
+	WHERE    Data > '2020-05-01'
+	GROUP BY Operatore),
+ DatiPreMaggio AS (
+	SELECT   Operatore, 
+			 AVG(Valore) AS ValorePre
+	FROM     Esperimenti
+	WHERE    Data <= '2020-05-01'
+	GROUP BY Operatore)
+SELECT Post.Operatore,
+       CAST(Post.ValorePost AS DECIMAL(18,2)) AS AVGPost,
+       CAST(Pre.ValorePre AS DECIMAL(18,2)) AS AVGPre,
+       CAST( (Post.ValorePost - Pre.ValorePre) / ABS(Pre. ValorePre) 
+                AS DECIMAL(18,2)) AS DifferenzaPercentuale
+FROM  DatiPostMaggio AS Post
+INNER JOIN DatiPreMaggio AS Pre
+	ON Post.Operatore = Pre.Operatore;
+    
+    
+/*Se volessimo essere più scrupolosi, potremmo utilizzare una CASE WHEN
+ per gestire i casi in cui il ValorePre (e quindi il denominatore della formula) fosse zero.*/
+WITH DatiPostMaggio AS (
+	SELECT   Operatore, 
+			 AVG(Valore) AS ValorePost
+	FROM     Esperimenti
+	WHERE    Data > '2020-05-01'
+	GROUP BY Operatore),
+ DatiPreMaggio AS (
+	SELECT   Operatore, 
+			 AVG(Valore) AS ValorePre
+	FROM     Esperimenti
+	WHERE    Data <= '2020-05-01'
+	GROUP BY Operatore)
+SELECT Post.Operatore,
+       CAST(Post.ValorePost AS DECIMAL(18,2)) AS AVGPost,
+       CAST(Pre.ValorePre AS DECIMAL(18,2)) AS AVGPre,
+       CAST(CASE WHEN Pre.ValorePre = 0 THEN NULL
+                 ELSE (Post.ValorePost - Pre.ValorePre) / ABS(Pre. ValorePre) 
+			END  AS DECIMAL(18,2)) AS DifferenzaPercentuale
+FROM  DatiPostMaggio AS Post
+INNER JOIN DatiPreMaggio AS Pre
+	ON Post.Operatore = Pre.Operatore;
+    
+    
+/*Riscriviamo la query in modo più conciso con la CASE WHEN*/
+WITH CTE AS (
+	SELECT  Operatore, 
+		    AVG(CASE WHEN Data > '2020-05-01' THEN Valore
+					 ELSE NULL 
+				END) AS ValorePost,
+			 AVG(CASE WHEN Data <= '2020-05-01' THEN Valore
+					  ELSE NULL 
+			 END) AS ValorePre
+	FROM     Esperimenti
+	GROUP BY Operatore)
+SELECT Operatore,
+	   CAST(ValorePost AS DECIMAL(18,2)) AS ValorePost,
+       CAST(ValorePre AS DECIMAL(18,2)) AS ValorePre,
+       CAST(CASE WHEN ValorePre = 0 THEN NULL
+                 ELSE (ValorePost - ValorePre) / ABS(ValorePre) 
+		    END AS DECIMAL(18,2)) AS DifferenzaPercentuale
+ FROM  CTE;
+ 
+ 
 /*******************************
-Capitolo 11: Esercizi
+Capitolo 14: Esercizi
 *******************************/
 
 /*1) Selezionare tutte le informazioni sui conti che rispettano 
