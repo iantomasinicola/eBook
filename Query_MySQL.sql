@@ -307,32 +307,7 @@ WHERE  Ordine = 1;
 
 
 /****************************************
-Capitolo 9: Funzioni SQL
-****************************************/
-/*Estrarre il settimo e ottavo carattere dalla colonna
-CodiceFiscale della tabella Clienti scriveremo */
-SELECT CodiceFiscale,
-	   SUBSTRING(CodiceFiscale, 7, 2) AS AnnoNascita
-FROM   Clienti;
-
-
-/*Utilizzo REPLACE */
-SELECT REPLACE('Testo', 't', 'c');
-
-
-/*Estrarre il numero di conti aperti al variare dell’anno */
-SELECT   YEAR(DataApertura) AS Anno,
-		 COUNT(*) AS NumeroConti
-FROM     ContiCorrenti
-GROUP BY YEAR(DataApertura);
-
-
-/*Utilizzo DATEDIFF */
-SELECT DATEDIFF('2022-07-23','2022-07-21');
-
-
-/****************************************
-Capitolo 10: Filtri particolari
+Capitolo 9: Filtri particolari
 ****************************************/
 /*Estrarre le carte di credito dei clienti
 con codice fiscale nell’elenco
@@ -397,8 +372,170 @@ WHERE  NOT EXISTS (SELECT *
                    WHERE  Cl.CodiceFiscale = CC.CodiceFiscale);
 
 
+/****************************************
+Capitolo 10: Funzioni SQL
+****************************************/
+/*Estrarre il settimo e ottavo carattere dalla colonna
+CodiceFiscale della tabella Clienti scriveremo */
+SELECT CodiceFiscale,
+	   SUBSTRING(CodiceFiscale, 7, 2) AS AnnoNascita
+FROM   Clienti;
+
+
+/*Utilizzo LEFT  e RIGHT */
+SELECT LEFT('Nicola',2), 
+       RIGHT('Nicola',2); 
+
+
+/*Utilizzo CONCAT */
+SELECT CONCAT(Cognome, '  ', Nome) AS Denominazione 
+FROM   Clienti; 
+
+
+/*Utilizzo REPLACE */
+SELECT REPLACE('Testo', 't', 'c');
+
+
+/*Utilizzo LTRIM, RTRIM, TRIM */
+SELECT LTRIM('   Nicola   '),
+	   RTRIM('   Nicola   '),                  
+       TRIM('   Nicola   '); 
+
+
+/*Utilizzo UPPER e LOWER */
+SELECT UPPER('Nicola'),                   
+	   LOWER('Nicola');
+
+
+/*Utilizzo INSTR */
+SELECT INSTR('Nicola, Iantomasi', ',');
+
+
+/*Estrarre il numero di conti aperti al variare dell’anno */
+SELECT   YEAR(DataApertura) AS Anno,
+		 COUNT(*) AS NumeroConti
+FROM     ContiCorrenti
+GROUP BY YEAR(DataApertura);
+
+
+/*Utilizzo DATEDIFF */
+SELECT DATEDIFF('2022-07-23','2022-07-21');
+
+
+/*Calcolare la durata media dei conti chiusi */
+SELECT AVG(DATEDIFF(DataChiusura,DataApertura)) AS DurataMedia
+FROM   ContiCorrenti 
+WHERE  DataChiusura IS NOT NULL;
+
+
+/*Utilizzo DATE_ADD, LAST_DAY, CURDATE, DAYOFWEEK, DAYOFYEAR */
+SELECT DATE_ADD('2023-01-01', INTERVAL 5 DAY) AS aggiunta_cinque_giorni,
+       LAST_DAY('2023-02-03') AS ultimo_del_mese,
+       CURDATE() AS data_attuale,
+       DAYOFWEEK('2023-01-31') AS giorno_settimana,
+       DAYOFYEAR('2023-02-03') AS giorno_anno;
+
+
 /********************************************
-Capitolo 11: Normalizzazione di un Database
+Capitolo 11: CASE WHEN
+********************************************/
+
+/* Visualizzare una colonna con i valori 40+ o 40- in base all’età del cliente.  */
+SELECT Nome,     
+       Cognome,   
+       Eta,    
+       CASE 
+         WHEN Eta >= 40 THEN '40+'                 
+         WHEN Eta < 40  THEN '40-'                 
+         ELSE NULL   
+	   END AS Tipologia_cliente 
+FROM Clienti;
+
+
+/* Visualizzare la distribuzione della colonna saldo classificando i conti in "Basso", "Medio" e "Alto" */
+SELECT   CASE 
+           WHEN Saldo >= 0 AND Saldo < 300 THEN 'Basso'            
+           WHEN Saldo >= 300 AND Saldo < 1000 THEN 'Medio'          
+           WHEN Saldo >= 1000 THEN 'Alto'           
+           ELSE NULL    
+	     END AS Tipologia,   
+         COUNT(*) AS Conteggio 
+FROM     ContiCorrenti 
+GROUP BY CASE 
+           WHEN Saldo >= 0 AND Saldo < 300 THEN 'Basso'            
+           WHEN Saldo >= 300 AND Saldo < 1000 THEN 'Medio'          
+           WHEN Saldo >= 1000 THEN 'Alto'           
+           ELSE NULL    
+	     END;  
+         
+ 
+ /*Ordinare per prima il cliente con codice fiscale DWNNLZ36P05E168T 
+ e poi tutti i restanti ordinati per cognome e nome. */
+ SELECT   * 
+ FROM     Clienti 
+ ORDER BY CASE    
+            WHEN CodiceFiscale =  'DWNNLZ36P05E168T'  THEN 1    
+            ELSE 2  
+		  END ASC,  
+          Cognome ASC,  
+          Nome ASC;        
+
+
+/********************************************
+Capitolo 12: Dalla progettazione concettuale 
+			al DB relazionale 
+********************************************/
+CREATE DATABASE Blog;
+
+USE Blog;
+
+CREATE TABLE Articoli( 	
+ Titolo VARCHAR(100) NOT NULL, 	
+ Testo VARCHAR(8000) NOT NULL, 	
+ DataPubblicazione DATE NOT NULL); 
+ 
+ CREATE TABLE Autori( 	
+   Nome VARCHAR(100) NOT NULL, 	
+   Cognome VARCHAR(100) NOT NULL); 
+   
+ CREATE TABLE Commenti( 	
+   Testo VARCHAR(1000) NOT NULL);
+
+ALTER TABLE Articoli 
+ADD IdArticolo INT NOT NULL PRIMARY KEY; 
+
+ALTER TABLE Autori 
+ADD IdAutore INT NOT NULL PRIMARY KEY; 
+
+ALTER TABLE Commenti 
+ADD IdCommento INT NOT NULL PRIMARY KEY;
+
+CREATE TABLE AutoriEmail( 	
+  IdAutore INT NOT NULL, 	
+  Email VARCHAR(100) NOT NULL, 	
+  PRIMARY KEY (IdAutore,Email), 	
+  FOREIGN KEY (IdAutore) 		
+    REFERENCES Autori(IdAutore) );
+    
+CREATE TABLE ArticoliAutori( 	
+  IdArticolo INT NOT NULL, 	
+  IdAutore INT NOT NULL, 	
+  PRIMARY KEY (IdArticolo,IdAutore), 	
+  FOREIGN KEY (IdArticolo) 		
+    REFERENCES Articoli(IdArticolo), 	
+  FOREIGN KEY (IdAutore) 		
+    REFERENCES Autori(IdAutore)); 
+    
+ ALTER TABLE Commenti 
+ ADD IdArticolo INT NOT NULL; 
+ 
+ ALTER TABLE Commenti
+ ADD FOREIGN KEY (IdArticolo) 
+   REFERENCES Articoli(IdArticolo);
+
+
+/********************************************
+Capitolo 13: Normalizzazione di un Database
 ********************************************/
 
 /*Creiamo il Database tramite lo script disponibile qui 
@@ -569,7 +706,7 @@ FROM   PrestitiClienti;
 
 
 /*******************************************
-Capitolo 12: Un Project Work riepilogativo
+Capitolo 14: Un Project Work riepilogativo
 ********************************************/
 
 /*Creiamo il Database Project Work*/
@@ -731,7 +868,7 @@ SELECT Operatore,
  
  
 /*******************************
-Capitolo 14: Esercizi
+Capitolo 16: Esercizi
 *******************************/
 
 /*1) Selezionare tutte le informazioni sui conti che rispettano 
@@ -886,4 +1023,3 @@ DELETE
 FROM   ClientiContiCorrenti 
 WHERE  NumeroConto = 32         
    AND CodiceFiscale = 'AWNNLZ36R05E168T';  
-
