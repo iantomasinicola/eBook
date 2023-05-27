@@ -3,6 +3,10 @@ di Nicola Iantomasi
 
 Eseguire le query sulla propria installazione personale
 di test dove si è creato il database
+
+L'autore non può essere ritenuto in alcun modo responsabile
+di eventuali omissioni, errori, refusi o dell'uso scorretto
+di questo documento
  */
 
 
@@ -45,6 +49,32 @@ WHERE  (Eta >= 40
           AND Eta<=50) 
    AND (Residenza = 'Puglia'
 	      OR Residenza = 'Sicilia');
+          
+/*Aggiungiamo una clausola ORDER BY*/
+SELECT Nome,
+       Cognome
+FROM   Clienti
+WHERE  (Eta >= 40 
+          AND Eta<=50) 
+   AND (Residenza = 'Puglia'
+	      OR Residenza = 'Sicilia')
+ORDER BY Cognome ASC,
+    Nome ASC;
+    
+    
+/*Visualizzare cento righe della tabella Clienti. 
+Attenzione anche all'opzione di MySQL Workbench 
+che potrebbe limitare il numero di righe in output
+delle query*/
+SELECT * 
+FROM   Clienti 
+LIMIT 100;
+
+
+/*Specificare il nome del database nella FROM */
+SELECT * 
+FROM   Banca.Clienti;
+
 
 
 /**********************************
@@ -61,6 +91,24 @@ INNER JOIN Clienti AS Cl
    ON Cc.CodiceFiscale =  Cl.CodiceFiscale;
 
 
+/*Tipologie di JOIN */
+SELECT Cc.NumeroCarta,                   
+   Cc.Saldo,                  
+   Cl.Nome,                  
+   Cl.Cognome 
+FROM  CarteCredito AS Cc 
+LEFT JOIN Clienti AS Cl         
+   ON   Cc.CodiceFiscale = Cl.CodiceFiscale; 
+
+SELECT Cc.NumeroCarta,                   
+   Cc.Saldo,                  
+   Cl.Nome,                  
+   Cl.Cognome 
+FROM  CarteCredito AS Cc 
+RIGHT JOIN Clienti AS Cl         
+   ON   Cc.CodiceFiscale = Cl.CodiceFiscale; 
+
+
 /*Riportare per ogni conto corrente il suo numero, il suo saldo, 
 il codice fiscale e la residenza dei clienti.*/
 SELECT Cc.NumeroConto,
@@ -72,6 +120,23 @@ INNER JOIN ClientiContiCorrenti AS Associazione
   ON Cc. NumeroConto = Associazione.NumeroConto
 INNER JOIN Clienti AS Cl
 ON Associazione.CodiceFiscale = Cl.CodiceFiscale;
+
+
+/*Query con condizioni di JOIN errata */
+SELECT * 
+FROM   ContiCorrenti AS Co 
+INNER JOIN CarteCredito AS Ca           
+   ON Co.NumeroConto =  Ca.NumeroCarta; 
+
+/*Infatti il conto 15 e la carta 15 sono associate a clienti diversi*/
+SELECT CodiceFiscale
+FROM   ClientiContiCorrenti
+WHERE  NumeroConto = 15;
+
+SELECT CodiceFiscale
+FROM   CarteCredito
+WHERE  NumeroCarta = 15;
+
 
 
 /**********************************
@@ -136,6 +201,26 @@ GROUP BY Valuta
 HAVING   AVG(saldo) > 100;
 
  
+ /*Contare il numero di conti aperti per ogni anno e mese*/
+SELECT   YEAR(DataApertura) AS Anno_apertura,
+		 MONTH(DataApertura) AS Mese_apertura, 
+         COUNT(*) AS NumeroConti 
+FROM     ContiCorrenti
+GROUP BY YEAR(DataApertura), 
+		 MONTH(DataApertura);
+         
+ /*Aggiungiamo un ORDER BY */        
+ SELECT   YEAR(DataApertura) AS Anno_apertura,
+		 MONTH(DataApertura) AS Mese_apertura, 
+         COUNT(*) AS NumeroConti 
+FROM     ContiCorrenti
+GROUP BY YEAR(DataApertura), 
+		 MONTH(DataApertura)
+ORDER BY YEAR(DataApertura),                          
+         MONTH(DataApertura);
+ 
+ 
+ 
 /****************************************
 Capitolo 4: Creiamo un nuovo database 
 ****************************************/
@@ -187,8 +272,70 @@ ADD FOREIGN KEY (IdAttore)
 REFERENCES Attori(IdAttore);
 
 
+
+/********************************************
+Capitolo 5: Dalla progettazione concettuale 
+			al DB relazionale 
+********************************************/
+CREATE DATABASE Blog;
+
+USE Blog;
+
+CREATE TABLE Articoli( 	
+ Titolo VARCHAR(100) NOT NULL, 	
+ Testo VARCHAR(8000) NOT NULL, 	
+ DataPubblicazione DATE NOT NULL); 
+ 
+ CREATE TABLE Autori( 	
+   Nome VARCHAR(100) NOT NULL, 	
+   Cognome VARCHAR(100) NOT NULL); 
+   
+ CREATE TABLE Commenti( 	
+   Testo VARCHAR(1000) NOT NULL);
+
+ALTER TABLE Articoli 
+ADD IdArticolo INT NOT NULL PRIMARY KEY; 
+
+ALTER TABLE Autori 
+ADD IdAutore INT NOT NULL PRIMARY KEY; 
+
+ALTER TABLE Commenti 
+ADD IdCommento INT NOT NULL PRIMARY KEY;
+
+CREATE TABLE AutoriEmail( 	
+  IdAutore INT NOT NULL, 	
+  Email VARCHAR(100) NOT NULL, 	
+  PRIMARY KEY (IdAutore,Email), 	
+  FOREIGN KEY (IdAutore) 		
+    REFERENCES Autori(IdAutore) );
+    
+CREATE TABLE ArticoliAutori( 	
+  IdArticolo INT NOT NULL, 	
+  IdAutore INT NOT NULL, 	
+  PRIMARY KEY (IdArticolo,IdAutore), 	
+  FOREIGN KEY (IdArticolo) 		
+    REFERENCES Articoli(IdArticolo), 	
+  FOREIGN KEY (IdAutore) 		
+    REFERENCES Autori(IdAutore)); 
+    
+ ALTER TABLE Commenti 
+ ADD IdArticolo INT NOT NULL; 
+ 
+ ALTER TABLE Commenti
+ ADD FOREIGN KEY (IdArticolo) 
+   REFERENCES Articoli(IdArticolo);
+
+
+/*Esempio di JOIN tra Articoli e Commenti */
+SELECT *
+FROM   Articoli AS A
+LEFT JOIN Commenti AS C
+	ON A.IdArticolo = C.IdArticolo;
+ 
+
+
 /****************************************
-Capitolo 5: Aggiornare un Database
+Capitolo 6: Aggiornare un Database
 ****************************************/
 USE Banca;
 
@@ -228,7 +375,7 @@ WHERE   CodiceFiscale = 'AWNNLZ36R05E168T';
 
 
 /****************************************
-Capitolo 6: SubQuery e CTE
+Capitolo 7: SubQuery e CTE
 ****************************************/
 /*Calcolare la media della somma dei saldi 
 dei conti al variare della valuta. */
@@ -250,8 +397,9 @@ FROM  (
 	  )  AS SaldiPerValuta;  
 
 
+
 /****************************************
-Capitolo 7: Viste e Stored Procedure
+Capitolo 8: Viste e Stored Procedure
 ****************************************/
 /*Salvare nel Database il codice per raggruppare i dati 
 dei conti correnti per valuta e calcolare il saldo aggregato.*/
@@ -272,42 +420,145 @@ BEGIN
 END //  
 DELIMITER ;  
 
+/*Eseguiamo la procedura */
+CALL IncrementaSaldoConti();
 
-/****************************************
-Capitolo 8: Le Window Function
-****************************************/
-/*Riportare per ogni valuta il numero di conto 
-con la data di apertura più recente.*/
 
+/*Salvare il codice che incrementa del 10%
+il saldo di un conto passato come parametro di input alla procedura.
+Inoltre occorre restituire in output una variabile con il nuovo saldo di 
+quel conto.*/  
+DELIMITER // 
+CREATE PROCEDURE IncrementaSaldoConti_p (IN p_NumeroConto INT, OUT p_NuovoSaldo DECIMAL(18,4) ) 
+ BEGIN 
+    UPDATE ContiCorrenti    
+    SET    Saldo = Saldo * 1.1
+    WHERE  NumeroConto = p_NumeroConto; 
+ 
+   SELECT  Saldo    
+   INTO    p_NuovoSaldo    
+   FROM    ContiCorrenti    
+   WHERE   NumeroConto = p_NumeroConto; 
+   
+ END // 
+ DELIMITER ;
+ 
+ /*Eseguiamo la procedura con il parametro di input 1 */
+CALL IncrementaSaldoConti_p(1, @NuovoSaldo); 
+SELECT @NuovoSaldo ;
+
+
+
+/********************************************
+Capitolo 9: CASE WHEN
+********************************************/
+/* Visualizzare una colonna con i valori 40+ o 40- in base all’età del cliente.  */
+SELECT Nome,     
+       Cognome,   
+       Eta,    
+       CASE 
+         WHEN Eta >= 40 THEN '40+'                 
+         WHEN Eta < 40  THEN '40-'                 
+         ELSE NULL   
+	   END AS Tipologia_cliente 
+FROM Clienti;
+
+
+/* Visualizzare la distribuzione della colonna saldo classificando i conti in "Basso", "Medio" e "Alto" */
+SELECT   CASE 
+           WHEN Saldo >= 0 AND Saldo < 300 THEN 'Basso'            
+           WHEN Saldo >= 300 AND Saldo < 1000 THEN 'Medio'          
+           WHEN Saldo >= 1000 THEN 'Alto'           
+           ELSE NULL    
+	     END AS Tipologia,   
+         COUNT(*) AS Conteggio 
+FROM     ContiCorrenti 
+GROUP BY CASE 
+           WHEN Saldo >= 0 AND Saldo < 300 THEN 'Basso'            
+           WHEN Saldo >= 300 AND Saldo < 1000 THEN 'Medio'          
+           WHEN Saldo >= 1000 THEN 'Alto'           
+           ELSE NULL    
+	     END;  
+         
+ 
+ /*Ordinare per prima il cliente con codice fiscale DWNNLZ36P05E168T 
+ e poi tutti i restanti ordinati per cognome e nome. */
+ SELECT   * 
+ FROM     Clienti 
+ ORDER BY CASE    
+            WHEN CodiceFiscale =  'DWNNLZ36P05E168T'  THEN 1    
+            ELSE 2  
+		  END ASC,  
+          Cognome ASC,  
+          Nome ASC;        
+
+
+
+/********************************************
+Capitolo 10: Operatori insiemistici
+********************************************/
+
+/*Estrarre in un'unica query numero prodotto, tipologia prodotto e saldo
+per carte di credito e conti correnti */
+SELECT NumeroCarta AS NumeroProdotto,
+	'Carta Credito' AS TipologiaProdotto, 
+    Saldo
+FROM  CarteCredito
+   UNION ALL
+SELECT NumeroConto AS NumeroProdotto,
+	'Conto Corrente' AS TipologiaProdotto, 
+    Saldo
+FROM  ContiCorrenti;
+
+/*Aggiungiamo un ordinamento per rendere deterministica
+la visualizzazione delle cart di credito all'inizio */
 WITH CTE AS (
-   SELECT  Valuta,
-          MAX(DataApertura) AS AperturaPiuRecente
-  FROM    ContiCorrenti
-  GROUP BY Valuta)
-SELECT CTE.Valuta,
-       Cc.NumeroConto,
-       CTE.AperturaPiuRecente
-FROM ContiCorrenti AS Cc
-INNER JOIN CTE 
-  ON Cc.Valuta = CTE.Valuta
-  AND CC.DataApertura =  CTE.AperturaPiuRecente; 
-
-
-WITH CTE AS ( 
-   SELECT *,
-          RANK() OVER(PARTITION BY Valuta
-                 ORDER BY DataApertura DESC) 
-                                   AS Ordine
-   FROM ContiCorrenti)
-SELECT Valuta,
-	   NumeroConto,
-	   DataApertura AS AperturaPiuRecente
+	SELECT NumeroCarta AS NumeroProdotto,
+		'Carta Credito' AS TipologiaProdotto, 
+		Saldo
+	FROM  CarteCredito
+	   UNION ALL
+	SELECT NumeroConto AS NumeroProdotto,
+		'Conto Corrente' AS TipologiaProdotto, 
+		Saldo
+	FROM  ContiCorrenti)
+SELECT *
 FROM   CTE
-WHERE  Ordine = 1;
+ORDER BY CASE WHEN TipologiaProdotto = 'Carta Credito'  
+              THEN 1       
+              ELSE 2 
+		END;
+
+
+/*Utilizziamo gli altri operatori insiemistici*/
+SELECT CodiceFiscale 
+FROM    ClientiContiCorrenti     
+   INTERSECT ALL 
+SELECT CodiceFiscale 
+FROM    CarteCredito;
+
+SELECT CodiceFiscale 
+FROM    ClientiContiCorrenti     
+   INTERSECT  
+SELECT CodiceFiscale 
+FROM    CarteCredito;
+
+SELECT CodiceFiscale 
+FROM    ClientiContiCorrenti     
+   EXCEPT ALL 
+SELECT CodiceFiscale 
+FROM    CarteCredito;
+
+SELECT CodiceFiscale 
+FROM    ClientiContiCorrenti     
+   EXCEPT 
+SELECT CodiceFiscale 
+FROM    CarteCredito;
+
 
 
 /****************************************
-Capitolo 9: Filtri particolari
+Capitolo 11: Filtri particolari
 ****************************************/
 /*Estrarre le carte di credito dei clienti
 con codice fiscale nell’elenco
@@ -372,8 +623,28 @@ WHERE  NOT EXISTS (SELECT *
                    WHERE  Cl.CodiceFiscale = CC.CodiceFiscale);
 
 
+/*FULL JOIN con MYSql*/
+SELECT Cc.NumeroCarta,                   
+   Cc.Saldo,                  
+   Cl.Nome,                  
+   Cl.Cognome 
+FROM  CarteCredito AS Cc 
+LEFT JOIN Clienti AS Cl         
+   ON   Cc.CodiceFiscale = Cl.CodiceFiscale
+   UNION ALL
+SELECT Cc.NumeroCarta,                   
+   Cc.Saldo,                  
+   Cl.Nome,                  
+   Cl.Cognome 
+FROM  Clienti AS Cl
+LEFT JOIN CarteCredito AS Cc         
+   ON   Cl.CodiceFiscale = Cc.CodiceFiscale
+WHERE Cc.CodiceFiscale IS NULL;
+
+
+
 /****************************************
-Capitolo 10: Funzioni SQL
+Capitolo 12: Funzioni SQL
 ****************************************/
 /*Estrarre il settimo e ottavo carattere dalla colonna
 CodiceFiscale della tabella Clienti scriveremo */
@@ -436,112 +707,127 @@ SELECT DATE_ADD('2023-01-01', INTERVAL 5 DAY) AS aggiunta_cinque_giorni,
        DAYOFYEAR('2023-02-03') AS giorno_anno;
 
 
+
+/****************************************
+Capitolo 13: Le Window Function
+****************************************/
+/*Riportare per ogni valuta il numero di conto 
+con la data di apertura più recente.*/
+
+WITH CTE AS (
+   SELECT  Valuta,
+          MAX(DataApertura) AS AperturaPiuRecente
+  FROM    ContiCorrenti
+  GROUP BY Valuta)
+SELECT CTE.Valuta,
+       Cc.NumeroConto,
+       CTE.AperturaPiuRecente
+FROM ContiCorrenti AS Cc
+INNER JOIN CTE 
+  ON Cc.Valuta = CTE.Valuta
+  AND CC.DataApertura =  CTE.AperturaPiuRecente; 
+
+
+WITH CTE AS ( 
+   SELECT *,
+          RANK() OVER(PARTITION BY Valuta
+                 ORDER BY DataApertura DESC) 
+                                   AS Ordine
+   FROM ContiCorrenti)
+SELECT Valuta,
+	   NumeroConto,
+	   DataApertura AS AperturaPiuRecente
+FROM   CTE
+WHERE  Ordine = 1;
+
+
+
 /********************************************
-Capitolo 11: CASE WHEN
+Capitolo 14: Statistica con SQL
 ********************************************/
 
-/* Visualizzare una colonna con i valori 40+ o 40- in base all’età del cliente.  */
-SELECT Nome,     
-       Cognome,   
-       Eta,    
-       CASE 
-         WHEN Eta >= 40 THEN '40+'                 
-         WHEN Eta < 40  THEN '40-'                 
-         ELSE NULL   
-	   END AS Tipologia_cliente 
-FROM Clienti;
+/*Analisi colonna Saldo delle tabelle ContiCorrenti e CarteCredito */
+SELECT 'ContiCorrenti' AS Tabella, 	
+   AVG(Saldo) AS Media, 	
+   STD(Saldo) AS Deviazione_standard,        
+   STD(Saldo) / ABS(AVG(Saldo)) AS CV
+FROM ContiCorrenti  
+  UNION ALL 
+SELECT 'CarteCredito' AS Tabella,  
+   AVG(Saldo) AS Media, 
+   STD(Saldo) AS Deviazione_standard,    
+   STD(Saldo) / ABS(AVG(Saldo)) AS CV
+FROM CarteCredito;
 
 
-/* Visualizzare la distribuzione della colonna saldo classificando i conti in "Basso", "Medio" e "Alto" */
-SELECT   CASE 
-           WHEN Saldo >= 0 AND Saldo < 300 THEN 'Basso'            
-           WHEN Saldo >= 300 AND Saldo < 1000 THEN 'Medio'          
-           WHEN Saldo >= 1000 THEN 'Alto'           
-           ELSE NULL    
-	     END AS Tipologia,   
-         COUNT(*) AS Conteggio 
-FROM     ContiCorrenti 
-GROUP BY CASE 
-           WHEN Saldo >= 0 AND Saldo < 300 THEN 'Basso'            
-           WHEN Saldo >= 300 AND Saldo < 1000 THEN 'Medio'          
-           WHEN Saldo >= 1000 THEN 'Alto'           
-           ELSE NULL    
-	     END;  
-         
- 
- /*Ordinare per prima il cliente con codice fiscale DWNNLZ36P05E168T 
- e poi tutti i restanti ordinati per cognome e nome. */
- SELECT   * 
- FROM     Clienti 
- ORDER BY CASE    
-            WHEN CodiceFiscale =  'DWNNLZ36P05E168T'  THEN 1    
-            ELSE 2  
-		  END ASC,  
-          Cognome ASC,  
-          Nome ASC;        
+/*Calcolo frequenze assolute della colonna
+Residenza della tabella Clienti */
+SELECT Residenza,        
+    COUNT(*) AS Frequenza_assoluta
+FROM Clienti 
+GROUP BY Residenza;
 
 
-/********************************************
-Capitolo 12: Dalla progettazione concettuale 
-			al DB relazionale 
-********************************************/
-CREATE DATABASE Blog;
+/*Calcolo della Moda della colonna 
+Residenza della tabella Clienti */
+WITH CTE1 AS ( 	
+   SELECT Residenza,          	  
+      COUNT(*) AS Fr 	
+   FROM Clienti  	
+   GROUP BY Residenza),
+CTE2 AS (     
+   SELECT *,         
+   RANK() OVER(ORDER BY Fr DESC) AS RN 	
+   FROM CTE1) 
+SELECT Residenza,     
+	   Fr AS Frequenza_assoluta
+FROM   CTE2
+WHERE  RN = 1;
 
-USE Blog;
 
-CREATE TABLE Articoli( 	
- Titolo VARCHAR(100) NOT NULL, 	
- Testo VARCHAR(8000) NOT NULL, 	
- DataPubblicazione DATE NOT NULL); 
- 
- CREATE TABLE Autori( 	
-   Nome VARCHAR(100) NOT NULL, 	
-   Cognome VARCHAR(100) NOT NULL); 
-   
- CREATE TABLE Commenti( 	
-   Testo VARCHAR(1000) NOT NULL);
+/*Calcolo frequenze relative della colonna
+Residenza della tabella Clienti */
+SELECT Residenza,    
+   COUNT(*)  AS Fr_assoluta,      
+   COUNT(*) / T.Totale AS Fr_relativa 
+FROM Clienti 
+CROSS JOIN  
+ (SELECT COUNT(*) AS Totale  
+  FROM Clienti)  AS T
+GROUP BY Residenza,    
+   T.Totale;
 
-ALTER TABLE Articoli 
-ADD IdArticolo INT NOT NULL PRIMARY KEY; 
 
-ALTER TABLE Autori 
-ADD IdAutore INT NOT NULL PRIMARY KEY; 
+/*Calcolo indice di Gini e indici di Gini normalizzato
+della colonna Residenza della tabella Clienti*/
+WITH CTE_1 AS (
+   SELECT Residenza, 
+       COUNT(*) / T.Totale AS Fr_relativa
+   FROM Clienti     
+   CROSS JOIN      
+    (SELECT COUNT(*) AS Totale      
+     FROM Clienti)  AS T   
+	GROUP BY Residenza,       
+       T.Totale), 
+CTE_2 AS ( 	
+    SELECT 1 - SUM(POWER(Fr_relativa,2)) AS Gini 	
+    FROM   CTE_1 ) 
+SELECT Gini AS Indice_Gini, 	
+       Gini / ( (K-1)/K ) AS Indice_Gini_normalizzato
+FROM   CTE_2 
+CROSS JOIN   
+  (SELECT COUNT(DISTINCT Residenza) AS K   
+   FROM Clienti) AS tab;
 
-ALTER TABLE Commenti 
-ADD IdCommento INT NOT NULL PRIMARY KEY;
-
-CREATE TABLE AutoriEmail( 	
-  IdAutore INT NOT NULL, 	
-  Email VARCHAR(100) NOT NULL, 	
-  PRIMARY KEY (IdAutore,Email), 	
-  FOREIGN KEY (IdAutore) 		
-    REFERENCES Autori(IdAutore) );
-    
-CREATE TABLE ArticoliAutori( 	
-  IdArticolo INT NOT NULL, 	
-  IdAutore INT NOT NULL, 	
-  PRIMARY KEY (IdArticolo,IdAutore), 	
-  FOREIGN KEY (IdArticolo) 		
-    REFERENCES Articoli(IdArticolo), 	
-  FOREIGN KEY (IdAutore) 		
-    REFERENCES Autori(IdAutore)); 
-    
- ALTER TABLE Commenti 
- ADD IdArticolo INT NOT NULL; 
- 
- ALTER TABLE Commenti
- ADD FOREIGN KEY (IdArticolo) 
-   REFERENCES Articoli(IdArticolo);
 
 
 /********************************************
-Capitolo 13: Normalizzazione di un Database
+Capitolo 15: Normalizzazione di un Database
 ********************************************/
 
 /*Creiamo il Database tramite lo script disponibile qui 
 https://raw.githubusercontent.com/iantomasinicola/eBook/main/CodiceDbNonNormalizzato.txt
 */
-
 
 /*Posizioniamoci su questo Database in modo che le prossime istruzioni siano relative ad esso*/
 USE normalizzazione;
@@ -706,7 +992,7 @@ FROM   PrestitiClienti;
 
 
 /*******************************************
-Capitolo 14: Un Project Work riepilogativo
+Capitolo 16: Un Project Work riepilogativo
 ********************************************/
 
 /*Creiamo il Database Project Work*/
@@ -868,7 +1154,7 @@ SELECT Operatore,
  
  
 /*******************************
-Capitolo 16: Esercizi
+Capitolo 18: Esercizi
 *******************************/
 
 /*1) Selezionare tutte le informazioni sui conti che rispettano 
